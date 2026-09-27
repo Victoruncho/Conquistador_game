@@ -1,10 +1,10 @@
 from django.contrib import admin
-from django.http import HttpResponse
+from django.shortcuts import render
 from django.urls import include, path
 
 
 def home(request):
-    return HttpResponse('Quiz Conquest backend is running.', content_type='text/plain')
+    return render(request, 'auth_ui.html')
 
 
 urlpatterns = [

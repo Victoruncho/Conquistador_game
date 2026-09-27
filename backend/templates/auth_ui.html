@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz Conquest Auth</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #111827;
+        --panel: #1f2937;
+        --panel-2: #0f172a;
+        --text: #f9fafb;
+        --muted: #cbd5e1;
+        --accent: #8b5cf6;
+        --accent-2: #22c55e;
+        --danger: #ef4444;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, var(--bg), var(--panel-2));
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .container {
+        width: min(900px, 90vw);
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 2rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+      }
+      .panel {
+        background: var(--panel);
+        border-radius: 16px;
+        padding: 20px;
+      }
+      label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+      }
+      input, button {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.12);
+        margin-bottom: 12px;
+        font-size: 1rem;
+      }
+      input {
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+      }
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      button.secondary {
+        background: var(--accent-2);
+      }
+      button.danger {
+        background: var(--danger);
+      }
+      .status {
+        min-height: 24px;
+        margin-top: 10px;
+        color: var(--muted);
+        word-wrap: break-word;
+      }
+      .code {
+        font-family: monospace;
+        background: rgba(255,255,255,0.05);
+        border-radius: 8px;
+        padding: 12px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Quiz Conquest Auth</h1>
+      <div class="grid">
+        <div class="panel">
+          <h2>Register</h2>
+          <label>Username<input id="register-username" /></label>
+          <label>Email<input id="register-email" type="email" /></label>
+          <label>Nickname<input id="register-nickname" /></label>
+          <label>Password<input id="register-password" type="password" /></label>
+          <label>Confirm password<input id="register-password-confirm" type="password" /></label>
+          <button id="register-btn">Register</button>
+          <div id="register-status" class="status"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Login</h2>
+          <label>Username<input id="login-username" /></label>
+          <label>Password<input id="login-password" type="password" /></label>
+          <button id="login-btn" class="secondary">Login</button>
+          <button id="logout-btn" class="danger">Logout</button>
+          <div id="login-status" class="status"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Current user</h2>
+          <button id="me-btn">GET /api/auth/me/</button>
+          <button id="csrf-btn">GET /api/auth/csrf/</button>
+          <div id="me-status" class="status"></div>
+          <div id="me-json" class="code"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const apiBase = '/api/auth';
+      const getCsrfToken = () => document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+
+      const setStatus = (id, msg, isError = false) => {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.style.color = isError ? '#fca5a5' : '#cbd5e1';
+      };
+
+      async function fetchJson(url, options = {}) {
+        const csrfToken = getCsrfToken();
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(options.headers || {}),
+        };
+
+        if (csrfToken && ['POST', 'PATCH', 'PUT', 'DELETE'].includes((options.method || 'GET').toUpperCase())) {
+          headers['X-CSRFToken'] = csrfToken;
+        }
+
+        const response = await fetch(url, {
+          ...options,
+          credentials: 'same-origin',
+          headers,
+        });
+
+        const text = await response.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+
+        if (!response.ok) {
+          const msg = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
+          throw new Error(msg || response.statusText);
+        }
+
+        return { response, data };
+      }
+
+      document.getElementById('register-btn').addEventListener('click', async () => {
+        try {
+          const payload = {
+            username: document.getElementById('register-username').value,
+            email: document.getElementById('register-email').value,
+            nickname: document.getElementById('register-nickname').value,
+            password: document.getElementById('register-password').value,
+            password_confirm: document.getElementById('register-password-confirm').value,
+          };
+
+          const { response, data } = await fetchJson(`${apiBase}/register/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+
+          setStatus('register-status', `Registered (${response.status})`);
+          document.getElementById('me-json').textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+          setStatus('register-status', error.message, true);
+        }
+      });
+
+      document.getElementById('login-btn').addEventListener('click', async () => {
+        try {
+          const payload = {
+            username: document.getElementById('login-username').value,
+            password: document.getElementById('login-password').value,
+          };
+
+          const { response, data } = await fetchJson(`${apiBase}/login/`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+
+          setStatus('login-status', `Logged in (${response.status})`);
+          document.getElementById('me-json').textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+          setStatus('login-status', error.message, true);
+        }
+      });
+
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        try {
+          const { response } = await fetchJson(`${apiBase}/logout/`, { method: 'POST' });
+          setStatus('login-status', `Logged out (${response.status})`);
+          document.getElementById('me-json').textContent = '';
+        } catch (error) {
+          setStatus('login-status', error.message, true);
+        }
+      });
+
+      document.getElementById('me-btn').addEventListener('click', async () => {
+        try {
+          const { response, data } = await fetchJson(`${apiBase}/me/`);
+          document.getElementById('me-json').textContent = JSON.stringify(data, null, 2);
+          setStatus('me-status', `Loaded user (${response.status})`);
+        } catch (error) {
+          setStatus('me-status', error.message, true);
+        }
+      });
+
+      document.getElementById('csrf-btn').addEventListener('click', async () => {
+        try {
+          const { response } = await fetchJson(`${apiBase}/csrf/`);
+          setStatus('me-status', `CSRF cookie set (${response.status})`);
+        } catch (error) {
+          setStatus('me-status', error.message, true);
+        }
+      });
+    </script>
+  </body>
+</html>
