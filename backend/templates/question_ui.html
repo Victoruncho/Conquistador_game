@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz Conquest Question Tester</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-2: #1f2937;
+        --text: #f8fafc;
+        --muted: #cbd5e1;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --accent: #8b5cf6;
+        --accent-2: #3b82f6;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(135deg, var(--bg), #111827);
+        color: var(--text);
+      }
+
+      .wrap {
+        max-width: 1100px;
+        margin: 32px auto;
+        padding: 24px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 2rem;
+      }
+
+      .summary {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 14px;
+        padding: 12px 18px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: rgba(17, 24, 39, 0.95);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 1.1rem;
+      }
+
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+      }
+
+      .question {
+        margin: 12px 0 18px;
+        font-size: 1.05rem;
+        line-height: 1.5;
+      }
+
+      .options {
+        display: grid;
+        gap: 10px;
+      }
+
+      .option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.02);
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+
+      .option.selected {
+        border-color: var(--accent-2);
+        background: rgba(59,130,246,0.12);
+      }
+
+      .option.correct {
+        border-color: var(--success);
+        background: rgba(34,197,94,0.12);
+      }
+
+      .option.incorrect {
+        border-color: var(--danger);
+        background: rgba(239,68,68,0.12);
+      }
+
+      input[type='number'] {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(255,255,255,0.03);
+        color: var(--text);
+        font-size: 1rem;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      button {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: white;
+      }
+
+      .secondary {
+        background: var(--panel-2);
+        color: var(--text);
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+
+      .result {
+        margin-top: 12px;
+        min-height: 22px;
+        font-weight: bold;
+      }
+
+      .result.success { color: var(--success); }
+      .result.error { color: var(--danger); }
+      .result.info { color: var(--warning); }
+
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="topbar">
+        <h1>Question Bank Tester</h1>
+        <div class="summary" id="summary">0 questions loaded</div>
+      </div>
+
+      <div id="question-list" class="grid"></div>
+    </div>
+
+    <script id="questions-data" type="application/json">{{ questions_json|escapejs }}</script>
+    <script>
+      const raw = document.getElementById('questions-data').textContent;
+      const questions = JSON.parse(raw || '[]');
+      const list = document.getElementById('question-list');
+      const summary = document.getElementById('summary');
+
+      function renderQuestion(question) {
+        const card = document.createElement('article');
+        card.className = 'card';
+
+        const title = document.createElement('h3');
+        title.textContent = question.category;
+        card.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = question.type === 'choice' ? 'Multiple choice' : 'Numeric answer';
+        card.appendChild(meta);
+
+        const prompt = document.createElement('div');
+        prompt.className = 'question';
+        prompt.textContent = question.text;
+        card.appendChild(prompt);
+
+        if (question.type === 'choice') {
+          const optionsWrap = document.createElement('div');
+          optionsWrap.className = 'options';
+
+          question.options.forEach((option) => {
+            const optionButton = document.createElement('button');
+            optionButton.type = 'button';
+            optionButton.className = 'option';
+            optionButton.textContent = option.text;
+            optionButton.dataset.optionId = String(option.id);
+
+            optionButton.addEventListener('click', () => {
+              optionButton.parentElement.querySelectorAll('.option').forEach((el) => el.classList.remove('selected'));
+              optionButton.classList.add('selected');
+              question.selectedOption = option.id;
+            });
+
+            optionsWrap.appendChild(optionButton);
+          });
+
+          card.appendChild(optionsWrap);
+
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+
+          const checkBtn = document.createElement('button');
+          checkBtn.type = 'button';
+          checkBtn.className = 'primary';
+          checkBtn.textContent = 'Check answer';
+          checkBtn.addEventListener('click', () => {
+            const selectedId = question.selectedOption;
+            const resultEl = card.querySelector('.result');
+            const optionEls = card.querySelectorAll('.option');
+
+            if (selectedId == null) {
+              resultEl.textContent = 'Please select an answer first.';
+              resultEl.className = 'result info';
+              return;
+            }
+
+            const selectedOption = question.options.find((option) => option.id === selectedId);
+            const correct = question.options.find((option) => option.is_correct);
+
+            optionEls.forEach((el) => {
+              const isSelected = Number(el.dataset.optionId) === selectedId;
+              const isCorrect = Number(el.dataset.optionId) === correct.id;
+              el.classList.remove('selected', 'correct', 'incorrect');
+              if (isCorrect) el.classList.add('correct');
+              if (isSelected && !isCorrect) el.classList.add('incorrect');
+            });
+
+            if (selectedOption && selectedOption.is_correct) {
+              resultEl.textContent = 'Correct!';
+              resultEl.className = 'result success';
+            } else {
+              resultEl.textContent = `Wrong. Correct answer: ${correct.text}`;
+              resultEl.className = 'result error';
+            }
+          });
+
+          const resetBtn = document.createElement('button');
+          resetBtn.type = 'button';
+          resetBtn.className = 'secondary';
+          resetBtn.textContent = 'Reset';
+          resetBtn.addEventListener('click', () => {
+            question.selectedOption = null;
+            card.querySelectorAll('.option').forEach((el) => {
+              el.classList.remove('selected', 'correct', 'incorrect');
+            });
+            const resultEl = card.querySelector('.result');
+            resultEl.textContent = '';
+            resultEl.className = 'result';
+          });
+
+          actions.appendChild(checkBtn);
+          actions.appendChild(resetBtn);
+          card.appendChild(actions);
+        } else {
+          const input = document.createElement('input');
+          input.type = 'number';
+          input.placeholder = 'Enter numeric answer';
+          input.value = '';
+
+          const actions = document.createElement('div');
+          actions.className = 'actions';
+
+          const checkBtn = document.createElement('button');
+          checkBtn.type = 'button';
+          checkBtn.className = 'primary';
+          checkBtn.textContent = 'Check answer';
+          checkBtn.addEventListener('click', () => {
+            const resultEl = card.querySelector('.result');
+            const value = Number(input.value);
+            if (input.value === '' || Number.isNaN(value)) {
+              resultEl.textContent = 'Please enter a numeric value.';
+              resultEl.className = 'result info';
+              return;
+            }
+
+            if (value === question.correct_answer) {
+              resultEl.textContent = 'Correct!';
+              resultEl.className = 'result success';
+            } else {
+              resultEl.textContent = `Wrong. Correct answer: ${question.correct_answer}`;
+              resultEl.className = 'result error';
+            }
+          });
+
+          const resetBtn = document.createElement('button');
+          resetBtn.type = 'button';
+          resetBtn.className = 'secondary';
+          resetBtn.textContent = 'Clear';
+          resetBtn.addEventListener('click', () => {
+            input.value = '';
+            const resultEl = card.querySelector('.result');
+            resultEl.textContent = '';
+            resultEl.className = 'result';
+          });
+
+          card.appendChild(input);
+          actions.appendChild(checkBtn);
+          actions.appendChild(resetBtn);
+          card.appendChild(actions);
+        }
+
+        const result = document.createElement('div');
+        result.className = 'result';
+        card.appendChild(result);
+        list.appendChild(card);
+      }
+
+      questions.forEach(renderQuestion);
+      summary.textContent = `${questions.length} questions loaded`;
+    </script>
+  </body>
+</html>
