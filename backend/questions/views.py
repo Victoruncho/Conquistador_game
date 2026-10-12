@@ -6,11 +6,11 @@ from .models import Category, ChoiceQuestion, NumericQuestion
 
 
 def question_ui(request):
-    categories = Category.objects.prefetch_related('choicequestion_set', 'numericquestion_set').all()
+    categories = Category.objects.prefetch_related('choicequestions', 'numericquestions').all()
     questions = []
 
     for category in categories:
-        for question in category.choicequestion_set.all():
+        for question in category.choicequestions.all():
             questions.append({
                 'id': f'choice-{question.pk}',
                 'type': 'choice',
@@ -23,7 +23,7 @@ def question_ui(request):
                 'correct_answer': question.answer_options.filter(is_correct=True).first().text if question.answer_options.filter(is_correct=True).exists() else None,
             })
 
-        for question in category.numericquestion_set.all():
+        for question in category.numericquestions.all():
             questions.append({
                 'id': f'numeric-{question.pk}',
                 'type': 'numeric',
