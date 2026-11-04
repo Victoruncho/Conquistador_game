@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - 'Infrastructure'
-    #paths-ignore:
-     # - '/k8s/**'
 
 jobs:
   build-and-deploy:
